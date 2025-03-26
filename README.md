@@ -111,15 +111,15 @@ CMD ["python", "-m", "unittest", "discover"]
 
 ### **Step 3** - Build and Run the Docker Container
 ~~~
-docker build -t myapp .
-docker run myapp
+docker build -t hands-on-lab .
+docker run --rm hands-on-lab
 ~~~
 
 ### **Step 4** - Push Image to Docker Hub
 ~~~
-docker tag myapp your-dockerhub-username/myapp
 docker login
-docker push your-dockerhub-username/myapp
+docker tag hands-on-lab vinay539/hands-on-lab:latest
+docker push vinay539/hands-on-lab:latest
 ~~~
 
 # **📌CI/CD**
@@ -128,7 +128,20 @@ docker push your-dockerhub-username/myapp
 ### **Step 1** - Create a GitHub Actions Workflow
 Create a `.github/workflows/ci.yml` file in your repository.
 ~~~
-name: CI Pipeline
+mkdir -p .github/workflows
+~~~
+
+~~~
+touch .github/workflows/docker-ci.yml
+~~~
+
+~~~
+git add .
+git commit -m "Added GitHub Actions CI/CD pipeline"
+~~~
+
+~~~
+name: CI/CD Pipeline
 
 on: [push, pull_request]
 
@@ -136,20 +149,21 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v4
       
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: 3.9
       
-      - name: Install dependencies
+      - name: Install Dependencies
         run: |
           pip install pytest pylint
       
       - name: Run PyLint
-        run: pylint app.py || true  # Avoid failure due to linting errors
+        run: pylint app.py
+        continue-on-error: true  # Prevents failure due to linting errors
       
       - name: Run Unit Tests
         run: pytest test_app.py
@@ -158,14 +172,24 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Log in to Docker Hub
-        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-      
-      - name: Build Docker Image
-        run: docker build -t your-dockerhub-username/myapp .
-      
-      - name: Push Docker Image
-        run: docker push your-dockerhub-username/myapp
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: vinay539/hands-on-lab:latest
 ~~~
 
 ### **Step 2** - Configure GitHub Secrets for Docker Hub
